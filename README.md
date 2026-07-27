@@ -22,14 +22,9 @@ platform.
 
 ## Problem Statement
 
-Mobile money platforms are vulnerable to account-takeover fraud, where an
-attacker gains unauthorized control of a customer's account and attempts to
-drain it before the legitimate owner notices. In the simulation, this
-fraud pattern follows a consistent two-step chain: a **TRANSFER** that fully
-empties the victim's account balance, followed by a **CASH_OUT** that extracts
-the funds from the system via a mule account.
+Mobile money platforms are increasingly vulnerable to fraudulent transactions, particularly account-takeover attacks. Due to the private nature of financial data, publicly available datasets are scarce. This project uses the **PaySim** synthetic dataset, which simulates real-world mobile money transactions, to develop a machine learning model that accurately distinguishes fraudulent transactions from legitimate ones in a highly imbalanced dataset.
 
-Empirical analysis of the full dataset (6 Millions transactions) confirms fraud
+Empirical analysis of the full dataset **(6 Millions transactions)** confirms fraud
 is structurally confined to these two transaction types:
 
 | Type      | Transactions | Fraud cases | Fraud rate |
@@ -49,13 +44,11 @@ rule-based control (`isFlaggedFraud`, which flags single transfers over
 much smaller amounts.
 
 Dataset Link with Data Dictionary: https://drive.google.com/drive/folders/1NifXx7E2bzEPaSBTieoXOqCCFIgCFjM8?usp=sharing
+Dataset Link from kaggle : https://www.kaggle.com/datasets/ealaxi/paysim1/data
 
 ## Goal
 
-Build a binary classification model that scores TRANSFER and CASH_OUT
-transactions with the probability that they represent account-takeover fraud,
-enabling interception before funds exit the system — while minimizing false
-positives that would disrupt legitimate customers.
+Build a binary classification model to detect fraudulent **TRANSFER** and **CASH_OUT** transactions before funds leave the system. The objective is to maximize fraud detection **(high Recall)** while maintaining acceptable **Precision**, using **Precision–Recall AUC** as the primary evaluation metric.
 
 **Success criteria:**
 - Maximize recall (fraud catch rate) at an acceptable precision threshold,
