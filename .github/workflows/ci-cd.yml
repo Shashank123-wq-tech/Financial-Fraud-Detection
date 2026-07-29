@@ -1,0 +1,94 @@
+name: CI/CD - Fraud Detection API
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: fraud-detection-api
+  ECS_CLUSTER: fraud-detection-cluster
+  ECS_SERVICE: fraud-detection-service
+
+jobs:
+  # ---- Phase 4: CI gate — every push and PR must pass this ----
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          pip install ruff pytest httpx
+
+      - name: Lint (ruff)
+        run: ruff check src/ api/ tests/
+
+      - name: Unit tests
+        run: pytest tests/ -v
+
+  # ---- Phase 6-7: build, push, deploy — only on main, only if tests passed ----
+  build-and-deploy:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for OIDC auth to AWS
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Fetch trained model artifact
+        run: |
+          mkdir -p models
+          aws s3 cp s3://${{ secrets.MODEL_ARTIFACT_BUCKET }}/xgboost_fraud_model.pkl models/
+          aws s3 cp s3://${{ secrets.MODEL_ARTIFACT_BUCKET }}/feature_columns.json models/
+
+      - name: Build and tag image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f deploy/Dockerfile \
+            --build-arg MODEL_VERSION=$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Render new ECS task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: deploy/ecs-task-definition.json
+          container-name: fraud-api
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy to ECS Fargate (CD)
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true

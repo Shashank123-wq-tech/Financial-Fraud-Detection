@@ -1,0 +1,14 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.github/
+data/
+notebooks/
+assets/
+tests/
+*.ipynb
+.env
+.pytest_cache/
+*.egg-info/

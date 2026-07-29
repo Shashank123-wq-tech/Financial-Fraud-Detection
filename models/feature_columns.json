@@ -1,0 +1,15 @@
+[
+  "newbalanceOrig",
+  "amount_sender_ratio",
+  "dest_balance_missing",
+  "emptied_account",
+  "sender_balance_change",
+  "type_CASH_OUT",
+  "type_TRANSFER",
+  "sender_error",
+  "oldbalanceOrg",
+  "log_oldbalanceOrg",
+  "newbalanceDest",
+  "receiver_balance_change",
+  "receiver_error"
+]
